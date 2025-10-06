@@ -8,7 +8,7 @@ const TSUM_RADIUS = 25;
 const TSUM_TYPES = 5;
 const TSUM_COLORS = ['#ff6666', '#66ff66', '#6666ff', '#ffff66', '#ff66ff'];
 const GRAVITY_Y = 0.8;
-const GAME_TIME = 60; // 制限時間（秒）
+const GAME_TIME = 60;
 
 // --- DOM要素の取得 ---
 const gameContainer = document.getElementById('game-container');
@@ -43,7 +43,9 @@ const render = Render.create({
         width: V_WIDTH,
         height: V_HEIGHT,
         wireframes: false,
-        background: '#f8f8f8'
+        background: '#f8f8f8',
+        pixelRatio: window.devicePixelRatio, // 高解像度ディスプレイ対応
+        hasBounds: true // canvasのサイズに合わせる
     }
 });
 
@@ -62,9 +64,7 @@ function addTsums(count) {
     for (let i = 0; i < count; i++) {
         const type = Math.floor(Math.random() * TSUM_TYPES);
         const tsum = Bodies.circle(
-            Math.random() * (V_WIDTH - 80) + 40,
-            -50 * i - 50,
-            TSUM_RADIUS,
+            Math.random() * (V_WIDTH - 80) + 40, -50 * i - 50, TSUM_RADIUS,
             {
                 restitution: 0.3, friction: 0.5, label: 'tsum',
                 render: { fillStyle: TSUM_COLORS[type] }
@@ -82,28 +82,18 @@ function startGame() {
     timer = GAME_TIME;
     scoreElement.innerText = score;
     timerElement.innerText = timer;
-    
     gameOverScreen.style.display = 'none';
     uiContainer.style.visibility = 'visible';
     shuffleButton.style.visibility = 'visible';
-
     const allTsums = world.bodies.filter(body => body.label === 'tsum');
     allTsums.forEach(tsum => World.remove(world, tsum));
-
-    // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    //     ここの数値を30から45に変更しました
-    // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     addTsums(45);
-
     Render.run(render);
     Runner.run(runner, engine);
-
     timerInterval = setInterval(() => {
         timer--;
         timerElement.innerText = timer;
-        if (timer <= 0) {
-            endGame();
-        }
+        if (timer <= 0) { endGame(); }
     }, 1000);
 }
 
@@ -133,23 +123,44 @@ startButton.addEventListener('click', () => {
     startScreen.style.display = 'none';
     startGame();
 });
-
 restartButton.addEventListener('click', startGame);
 
 
-// --- マウス操作のイベントリスナー ---
-function getMousePosition(event) {
-    const bounds = render.canvas.getBoundingClientRect();
+// =======================================================
+// ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼ 修正箇所 ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+// =======================================================
+
+// --- マウスとタッチ操作の共通処理 ---
+
+// イベントからcanvas内の座標を取得する関数
+function getEventPosition(event) {
+    const canvasBounds = render.canvas.getBoundingClientRect();
+    let clientX, clientY;
+
+    // タッチイベントとマウスイベントで座標の取得方法を分岐
+    if (event.changedTouches) {
+        clientX = event.changedTouches[0].clientX;
+        clientY = event.changedTouches[0].clientY;
+    } else {
+        clientX = event.clientX;
+        clientY = event.clientY;
+    }
+
+    // canvasの表示サイズと内部的な解像度の比率を計算
+    const scaleX = V_WIDTH / canvasBounds.width;
+    const scaleY = V_HEIGHT / canvasBounds.height;
+
     return {
-        x: event.clientX - bounds.left,
-        y: event.clientY - bounds.top
+        x: (clientX - canvasBounds.left) * scaleX,
+        y: (clientY - canvasBounds.top) * scaleY
     };
 }
 
-render.canvas.addEventListener('mousedown', (event) => {
+// ドラッグ開始処理
+function handleDragStart(event) {
     if (!isGameActive) return;
-    const mousePosition = getMousePosition(event);
-    const bodies = Query.point(world.bodies, mousePosition);
+    const position = getEventPosition(event);
+    const bodies = Query.point(world.bodies, position);
     if (bodies.length > 0 && bodies[0].label === 'tsum') {
         isDragging = true;
         const startTsum = bodies[0];
@@ -158,12 +169,16 @@ render.canvas.addEventListener('mousedown', (event) => {
         startTsum.render.strokeStyle = '#000';
         startTsum.render.lineWidth = 3;
     }
-});
+}
 
-render.canvas.addEventListener('mousemove', (event) => {
+// ドラッグ中処理
+function handleDragMove(event) {
     if (!isDragging || !isGameActive) return;
-    const mousePosition = getMousePosition(event);
-    const bodies = Query.point(world.bodies, mousePosition);
+    // ページスクロールを防止
+    event.preventDefault();
+
+    const position = getEventPosition(event);
+    const bodies = Query.point(world.bodies, position);
     if (bodies.length > 0 && bodies[0].label === 'tsum') {
         const tsum = bodies[0];
         if (tsum.tsumType === currentTsumType && !currentChain.includes(tsum)) {
@@ -176,11 +191,11 @@ render.canvas.addEventListener('mousemove', (event) => {
             }
         }
     }
-});
+}
 
-window.addEventListener('mouseup', () => {
+// ドラッグ終了処理
+function handleDragEnd() {
     if (!isDragging || !isGameActive) return;
-    
     if (currentChain.length >= 3) {
         score += currentChain.length * 100;
         scoreElement.innerText = score;
@@ -188,13 +203,27 @@ window.addEventListener('mouseup', () => {
         World.remove(world, tsumsToRemove);
         setTimeout(() => addTsums(tsumsToRemove.length), 500);
     }
-
     currentChain.forEach(tsum => {
         tsum.render.strokeStyle = null;
         tsum.render.lineWidth = 1;
     });
-
     isDragging = false;
     currentChain = [];
     currentTsumType = -1;
-});
+}
+
+// --- イベントリスナーの登録 ---
+const canvas = render.canvas;
+// マウスイベント
+canvas.addEventListener('mousedown', handleDragStart);
+canvas.addEventListener('mousemove', handleDragMove);
+window.addEventListener('mouseup', handleDragEnd);
+
+// タッチイベント
+canvas.addEventListener('touchstart', handleDragStart);
+canvas.addEventListener('touchmove', handleDragMove);
+window.addEventListener('touchend', handleDragEnd);
+
+// =======================================================
+// ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲ 修正箇所 ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+// =======================================================
