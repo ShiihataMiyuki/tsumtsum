@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>JSでツムツム風ゲーム</title>
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background-color: #f0f0f0;
+      font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+    }
+    /* ゲームコンテナ */
+    #game-container {
+        position: relative;
+        width: 400px;
+        height: 700px;
+    }
+    canvas {
+      background-color: #fff;
+      border: 2px solid #333;
+    }
+    /* UI要素 */
+    #ui-container {
+        position: absolute;
+        top: 10px;
+        left: 0;
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center; /* 中央揃えを追加 */
+        padding: 0 20px;
+        box-sizing: border-box;
+        font-size: 24px;
+        visibility: hidden; /* ゲーム開始まで非表示 */
+    }
+
+    /* ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼ */
+    /* シャッフルボタンのCSS (ここを修正)     */
+    /* ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼ */
+    #shuffle-button {
+        padding: 8px 16px;
+        font-size: 16px; /* サイズを調整 */
+        cursor: pointer;
+        z-index: 10;
+        visibility: hidden; /* ゲーム開始まで非表示 */
+        /* position: absoluteなどの位置指定を削除 */
+    }
+
+    /* オーバーレイスクリーン共通スタイル */
+    .screen {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.7);
+        color: white;
+        display: flex; 
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        z-index: 100;
+    }
+    .screen h2 { font-size: 48px; margin: 0; }
+    .screen div { font-size: 32px; margin: 20px 0; }
+    .screen button { padding: 15px 30px; font-size: 24px; cursor: pointer; }
+    
+    #game-over-screen {
+        display: none;
+    }
+  </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="ui-container">
+            <div id="score-container">Score: <span id="score">0</span></div>
+            <button id="shuffle-button">Shuffle</button>
+            <div id="timer-container">Time: <span id="timer">60</span></div>
+        </div>
+        
+        <div id="start-screen" class="screen">
+            <h2>ツムツム風ゲーム</h2>
+            <div>
+                <button id="start-button">ゲーム開始</button>
+            </div>
+        </div>
+        
+        <div id="game-over-screen" class="screen">
+            <h2>Time Up!</h2>
+            <div id="final-score">Final Score: <span>0</span></div>
+            <button id="restart-button">Restart</button>
+        </div>
+
+        </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.18.0/matter.min.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
